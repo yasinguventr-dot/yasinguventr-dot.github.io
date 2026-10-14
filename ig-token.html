@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instagram Token Alma</title>
+<!--
+  Instagram token yardımcı sayfası (TARO / Seç kartını).
+  Python api.instagram.com'a bağlanamaz; bu sayfa aynı istekleri tarayıcının kendisine yaptırır.
+  Hiçbir şey kaydetmez, hiçbir yere göndermez;
+  formlar doğrudan Instagram sunucularına gider ve sonuç yeni sekmede açılır.
+-->
+<style>
+  :root { --bg:#f7f7f8; --fg:#1b1b1f; --kutu:#fff; --cizgi:#d9d9de; --vurgu:#2f5bea; --uyari:#a15c00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --kutu:#202026; --cizgi:#3a3a44; --vurgu:#7c9bff; --uyari:#f0b35a; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  section { background:var(--kutu); border:1px solid var(--cizgi); border-radius:10px; padding:16px; margin:16px 0; }
+  h1 { font-size:22px; } h2 { font-size:18px; margin-top:0; }
+  label { display:block; margin:10px 0 4px; font-weight:600; }
+  input[type=text], input[type=password] { width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--cizgi); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  button, a.dugme { display:inline-block; margin-top:12px; padding:9px 16px; border:0; border-radius:6px; background:var(--vurgu); color:#fff; font:inherit; text-decoration:none; cursor:pointer; }
+  .not { color:var(--uyari); font-size:14px; }
+  code { word-break:break-all; }
+</style>
+</head>
+<body>
+<main>
+<h1>Instagram token alma (Seç kartını)</h1>
+<p class="not">Bu sayfadaki sırrı ve tokenları sohbete yapıştırma. Sadece Claude Code ortam ayarlarına gir.</p>
+
+<section>
+  <h2>1. İzin ver</h2>
+  <p>Butona bas, <b>seckartini</b> ile giriş yap ve izin ver. Tarayıcı
+  <code>yasinguventr-dot.github.io/?code=...</code> adresine döner. O sekmenin <b>adres çubuğundaki tam adresi</b> kopyala.</p>
+  <a class="dugme" target="_blank" rel="noopener"
+     href="https://www.instagram.com/oauth/authorize?force_reauth=true&amp;client_id=1328389962604874&amp;redirect_uri=https%3A%2F%2Fyasinguventr-dot.github.io%2F&amp;response_type=code&amp;scope=instagram_business_basic%2Cinstagram_business_content_publish">Instagram izin sayfasını aç</a>
+</section>
+
+<section>
+  <h2>2. Kısa ömürlü token al</h2>
+  <form id="f1" method="post" action="https://api.instagram.com/oauth/access_token" target="_blank">
+    <input type="hidden" name="client_id" value="1328389962604874">
+    <input type="hidden" name="grant_type" value="authorization_code">
+    <input type="hidden" name="redirect_uri" value="https://yasinguventr-dot.github.io/">
+    <label for="adres">1. adımda dönülen tam adres</label>
+    <input type="text" id="adres" autocomplete="off" placeholder="https://yasinguventr-dot.github.io/?code=...">
+    <input type="hidden" name="code" id="kod">
+    <label for="sir1">Instagram uygulamasının sırrı (Meta → "Göster")</label>
+    <input type="password" name="client_secret" id="sir1" autocomplete="off">
+    <button type="submit">Gönder</button>
+  </form>
+  <p>Yeni sekmede <code>{"access_token": "...", "user_id": ..., "permissions": [...]}</code> görünür.
+  <code>permissions</code> içinde <code>instagram_business_content_publish</code> olmalı.
+  Tırnak içindeki <b>access_token</b> değerini (tırnaklar hariç) kopyala.</p>
+</section>
+
+<section>
+  <h2>3. Uzun ömürlü (~60 gün) token al</h2>
+  <form id="f2" method="get" action="https://graph.instagram.com/access_token" target="_blank">
+    <input type="hidden" name="grant_type" value="ig_exchange_token">
+    <input type="hidden" name="client_secret" id="sir2">
+    <label for="kisa">2. adımdaki access_token</label>
+    <input type="password" name="access_token" id="kisa" autocomplete="off">
+    <button type="submit">Gönder</button>
+  </form>
+  <p>Yeni sekmede <code>{"access_token": "...", "token_type": "bearer", "expires_in": 51...}</code> görünür.
+  Bu <b>access_token</b> değeri <code>INSTAGRAM_ACCESS_TOKEN</code> olacak.</p>
+</section>
+
+<section>
+  <h2>4. Ortam ayarlarına ekle</h2>
+  <p>Claude Code → Project settings → Ortam → Default yanındaki dişli. Ortam değişkenlerine ekle:</p>
+  <p><code>INSTAGRAM_USER_ID=17841430694540020</code><br>
+     <code>INSTAGRAM_ACCESS_TOKEN=</code><i>3. adımdaki uzun token</i></p>
+  <p>İzinli alan adlarına <code>graph.instagram.com</code> ekle ve kaydet. Sonra bu sayfayı kapat.</p>
+</section>
+</main>
+<script>
+  document.getElementById("f1").addEventListener("submit", function (e) {
+    var a = document.getElementById("adres").value.trim(), kod = a;
+    try { kod = new URL(a).searchParams.get("code") || a; } catch (x) {}
+    kod = kod.split("#")[0];                       // Instagram kodun sonuna '#_' ekler
+    if (!kod || !document.getElementById("sir1").value.trim()) {
+      e.preventDefault(); alert("Adres ve uygulama sırrı gerekli."); return;
+    }
+    document.getElementById("kod").value = kod;
+    document.getElementById("sir1").value = document.getElementById("sir1").value.trim();
+  });
+  document.getElementById("f2").addEventListener("submit", function (e) {
+    var s = document.getElementById("sir1").value.trim();
+    if (!s) { e.preventDefault(); alert("2. adımdaki uygulama sırrı kutusu boş."); return; }
+    document.getElementById("sir2").value = s;
+    document.getElementById("kisa").value = document.getElementById("kisa").value.trim().replace(/^"|"$/g, "");
+  });
+</script>
+</body>
+</html>
