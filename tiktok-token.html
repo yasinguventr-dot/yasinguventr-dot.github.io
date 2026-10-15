@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TikTok Token Alma</title>
+<!--
+  TikTok token yardımcı sayfası (TARO / Seç kartını). Login Kit "Redirect URI" olarak bu sayfa kullanılır.
+  Hiçbir şey kaydetmez, hiçbir yere göndermez; istemci anahtarı yalnızca bu sekmenin sessionStorage'ında durur,
+  form doğrudan TikTok sunucusuna gider ve sonuç yeni sekmede açılır.
+-->
+<style>
+  :root { --bg:#f7f7f8; --fg:#1b1b1f; --kutu:#fff; --cizgi:#d9d9de; --vurgu:#2f5bea; --uyari:#a15c00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --kutu:#202026; --cizgi:#3a3a44; --vurgu:#7c9bff; --uyari:#f0b35a; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  section { background:var(--kutu); border:1px solid var(--cizgi); border-radius:10px; padding:16px; margin:16px 0; }
+  h1 { font-size:22px; } h2 { font-size:18px; margin-top:0; }
+  label { display:block; margin:10px 0 4px; font-weight:600; }
+  input[type=text], input[type=password] { width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--cizgi); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  button { display:inline-block; margin-top:12px; padding:9px 16px; border:0; border-radius:6px; background:var(--vurgu); color:#fff; font:inherit; cursor:pointer; }
+  .not { color:var(--uyari); font-size:14px; }
+  .tamam { color:#1a7f37; font-weight:600; }
+  code { word-break:break-all; }
+</style>
+</head>
+<body>
+<main>
+<h1>TikTok token alma (Seç kartını)</h1>
+<p class="not">Bu sayfadaki anahtarı, sırrı ve tokenları sohbete yapıştırma. Sadece Claude Code ortam ayarlarına gir.</p>
+
+<section>
+  <h2>1. İzin ver</h2>
+  <label for="anahtar">TikTok uygulamasının Client key değeri</label>
+  <input type="password" id="anahtar" autocomplete="off">
+  <button type="button" id="izin">TikTok izin sayfasını aç</button>
+  <p>TikTok'ta TARO hesabınla giriş yap ve izin ver. Tarayıcı bu sayfaya geri döner.</p>
+  <p id="durum"></p>
+</section>
+
+<section>
+  <h2>2. Token al</h2>
+  <form id="f1" method="post" action="https://open.tiktokapis.com/v2/oauth/token/" target="_blank">
+    <input type="hidden" name="client_key" id="anahtar2">
+    <input type="hidden" name="grant_type" value="authorization_code">
+    <input type="hidden" name="redirect_uri" id="donus">
+    <input type="hidden" name="code" id="kod">
+    <label for="sir">TikTok uygulamasının Client secret değeri</label>
+    <input type="password" name="client_secret" id="sir" autocomplete="off">
+    <button type="submit">Gönder</button>
+  </form>
+  <p>Yeni sekmede <code>{"access_token": "...", "refresh_token": "...", "scope": "...", ...}</code> görünür.
+  <code>scope</code> içinde <code>video.publish</code> olmalı.
+  Tırnak içindeki <b>refresh_token</b> değerini (tırnaklar hariç) kopyala. Bu değer yaklaşık 1 yıl geçerlidir.</p>
+</section>
+
+<section>
+  <h2>3. Ortam ayarlarına ekle</h2>
+  <p>Claude Code → Project settings → Ortam → Default yanındaki dişli. Ortam değişkenlerine ekle:</p>
+  <p><code>TIKTOK_CLIENT_KEY=</code><i>Client key</i><br>
+     <code>TIKTOK_CLIENT_SECRET=</code><i>Client secret</i><br>
+     <code>TIKTOK_REFRESH_TOKEN=</code><i>2. adımdaki refresh_token</i></p>
+  <p>İzinli alan adlarına <code>open.tiktokapis.com</code> ekle ve kaydet. Sonra bu sayfayı kapat.</p>
+</section>
+</main>
+<script>
+  var DONUS = location.origin + location.pathname;
+  var KAPSAM = "user.info.basic,video.publish,video.upload";
+  var depo = { al: function (k) { try { return sessionStorage.getItem(k) || ""; } catch (x) { return ""; } },
+               koy: function (k, v) { try { sessionStorage.setItem(k, v); } catch (x) {} } };
+  document.getElementById("anahtar").value = depo.al("tt_anahtar");
+  document.getElementById("donus").value = DONUS;
+
+  document.getElementById("izin").addEventListener("click", function () {
+    var a = document.getElementById("anahtar").value.trim();
+    if (!a) { alert("Önce Client key gerekli."); return; }
+    var s = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    depo.koy("tt_anahtar", a); depo.koy("tt_state", s);
+    location.href = "https://www.tiktok.com/v2/auth/authorize/?client_key=" + encodeURIComponent(a) +
+      "&scope=" + encodeURIComponent(KAPSAM) + "&response_type=code" +
+      "&redirect_uri=" + encodeURIComponent(DONUS) + "&state=" + encodeURIComponent(s);
+  });
+
+  var p = new URLSearchParams(location.search), durum = document.getElementById("durum");
+  if (p.get("error")) {
+    durum.className = "not"; durum.textContent = "TikTok hata döndü: " + p.get("error") + " " + (p.get("error_description") || "");
+  } else if (p.get("code")) {
+    if (p.get("state") !== depo.al("tt_state")) {
+      durum.className = "not"; durum.textContent = "Güvenlik kodu eşleşmedi. 1. adımı bu sekmede baştan yap.";
+    } else {
+      document.getElementById("kod").value = p.get("code");
+      durum.className = "tamam"; durum.textContent = "İzin alındı ✓ Şimdi 2. adıma geç (birkaç dakika içinde).";
+    }
+  }
+
+  document.getElementById("f1").addEventListener("submit", function (e) {
+    var a = document.getElementById("anahtar").value.trim() || depo.al("tt_anahtar");
+    var s = document.getElementById("sir").value.trim();
+    if (!document.getElementById("kod").value) { e.preventDefault(); alert("Önce 1. adımı tamamla."); return; }
+    if (!a || !s) { e.preventDefault(); alert("Client key ve Client secret gerekli."); return; }
+    document.getElementById("anahtar2").value = a;
+    document.getElementById("sir").value = s;
+  });
+</script>
+</body>
+</html>
