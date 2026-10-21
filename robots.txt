@@ -1,0 +1,7 @@
+# Seç Kartını — https://yasinguventr-dot.github.io/
+# Token yardımcı sayfaları (ig-token.html, tiktok-token.html) burada engellenmez:
+# arama motorları sayfadaki "noindex" etiketini görebilsin diye taranabilir kalırlar ve sitemap'te yer almazlar.
+User-agent: *
+Allow: /
+
+Sitemap: https://yasinguventr-dot.github.io/sitemap.xml
